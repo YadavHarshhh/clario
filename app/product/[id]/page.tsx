@@ -15,6 +15,9 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<any | null>(null)
   const [relatedProducts, setRelatedProducts] = useState<any[]>([])
+  const [askQuery, setAskQuery] = useState("")
+  const [askResponse, setAskResponse] = useState<string | null>(null)
+  const [askLoading, setAskLoading] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -39,6 +42,41 @@ export default function ProductDetailPage() {
     load()
     return () => { mounted = false }
   }, [productId])
+
+  const handleAsk = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!askQuery.trim() || !product) return
+    setAskLoading(true)
+    setAskResponse(null)
+    try {
+      // Send the question with the specific product ID
+      const resp = await fetch('http://localhost:4000/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          question: askQuery.trim(),
+          productId: product.id, // Send the specific product ID
+          category: product.category,
+          limit: 3, // Get a few related products for context
+        }),
+      })
+      const data = await resp.json()
+      if (data?.answer) {
+        setAskResponse(data.answer)
+      } else if (data?.error) {
+        const errorMsg = data.details || data.error
+        setAskResponse(`Sorry, I encountered an error: ${errorMsg}. Please try again in a moment.`)
+      } else {
+        setAskResponse('Sorry, I could not process your question at this time. Please try again.')
+      }
+    } catch (e: any) {
+      console.error('Failed to fetch Gemini answer', e)
+      const errorMsg = e.message || 'Unknown error'
+      setAskResponse(`Sorry, I could not process your question. Error: ${errorMsg}. Please check your connection and try again.`)
+    } finally {
+      setAskLoading(false)
+    }
+  }
 
   // keep aiAnalysis memoized
 
@@ -159,7 +197,22 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Description */}
-              <p className="text-lg text-muted-foreground leading-relaxed">{product.description}</p>
+              <p className="text-lg text-muted-foreground leading-relaxed">
+                {product.ai_summary || product.description || "No description available."}
+              </p>
+              
+              {/* Gemini Enriched Summary */}
+              {product.ai_summary && (
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl border border-primary/20 p-6">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">🤖</span>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-foreground mb-2">AI-Powered Product Summary</h3>
+                      <p className="text-foreground leading-relaxed">{product.ai_summary}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Price & Purchase */}
               <div className="border-t border-b border-border py-6">
@@ -210,14 +263,51 @@ export default function ProductDetailPage() {
               <div className="bg-secondary/30 rounded-xl p-6 space-y-3 border border-border">
                 <h3 className="font-semibold text-foreground mb-4">Key Benefits</h3>
                 <div className="space-y-2 text-sm text-muted-foreground">
-                  {product.benefits?.map((benefit) => (
-                    <div key={benefit} className="flex gap-2">
+                  {(product.ai_benefits && product.ai_benefits.length > 0
+                    ? product.ai_benefits
+                    : product.benefits || []
+                  ).map((benefit: string, idx: number) => (
+                    <div key={idx} className="flex gap-2">
                       <span className="text-primary font-bold">✓</span>
                       <span>{benefit}</span>
                     </div>
                   ))}
                 </div>
               </div>
+              
+              {/* Gemini Usage Tips */}
+              {product.ai_usage_tips && product.ai_usage_tips.length > 0 && (
+                <div className="bg-accent/10 rounded-xl p-6 space-y-3 border border-accent/20">
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <span>💡</span> Usage Tips
+                  </h3>
+                  <div className="space-y-2 text-sm text-foreground">
+                    {product.ai_usage_tips.map((tip: string, idx: number) => (
+                      <div key={idx} className="flex gap-2">
+                        <span className="text-accent font-bold">•</span>
+                        <span>{tip}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Gemini Allergy Alerts */}
+              {product.ai_allergy_alerts && product.ai_allergy_alerts.length > 0 && (
+                <div className="bg-red-500/10 rounded-xl p-6 space-y-3 border border-red-500/20">
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <span>⚠️</span> Allergy Alerts
+                  </h3>
+                  <div className="space-y-2 text-sm text-foreground">
+                    {product.ai_allergy_alerts.map((alert: string, idx: number) => (
+                      <div key={idx} className="flex gap-2">
+                        <span className="text-red-500 font-bold">!</span>
+                        <span>{alert}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         </div>
@@ -325,6 +415,65 @@ export default function ProductDetailPage() {
                   </motion.div>
                 ))}
               </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+      {/* Q&A Section */}
+      {product && (
+        <section className="py-20 px-4 bg-gradient-to-b from-secondary/10 to-transparent">
+          <div className="max-w-6xl mx-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+              className="bg-card rounded-xl border border-border p-8"
+            >
+              <h2 className="text-3xl font-bold text-foreground mb-6 flex items-center gap-3">
+                <span>💬</span> Ask Clario AI About This Product
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                Have questions about {product.name}? Ask our AI assistant anything about ingredients, usage, suitability, or benefits.
+              </p>
+              
+              <form onSubmit={handleAsk} className="space-y-4">
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="e.g., Is this suitable for sensitive skin? How should I use this? What are the key ingredients?"
+                    value={askQuery}
+                    onChange={(e) => setAskQuery(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <motion.button
+                    type="submit"
+                    disabled={askLoading || !askQuery.trim()}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {askLoading ? "Thinking..." : "Ask"}
+                  </motion.button>
+                </div>
+                
+                {askResponse && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-6 p-6 bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg border border-primary/20"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">🤖</span>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-2">AI Answer</h3>
+                        <p className="text-foreground whitespace-pre-wrap leading-relaxed">{askResponse}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </form>
             </motion.div>
           </div>
         </section>

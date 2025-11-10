@@ -10,6 +10,7 @@ import { apiKeyMiddleware } from './middleware/apiKey.js'
 import productsRouter from './routes/products.js'
 import usersRouter from './routes/users.js'
 import recommendationsRouter from './routes/recommendations.js'
+import aiRouter from './routes/ai.js'
 
 const app = express()
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' })
@@ -33,6 +34,7 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/products', productsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/recommendations', recommendationsRouter)
+app.use('/api/ai', aiRouter)
 
 const port = Number(process.env.PORT || 4000)
 app.listen(port, () => {

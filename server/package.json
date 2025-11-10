@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "NODE_ENV=development node src/index.js",
     "start": "node src/index.js",
-    "import:products": "node scripts/import-products.js"
+    "import:products": "node scripts/import-products.js",
+    "enrich:products": "node scripts/enrich-products.js",
+    "enrich:sample": "node scripts/enrich-sample.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.11.5",
     "cors": "^2.8.5",
     "csv-parse": "^5.5.6",
     "dotenv": "^16.4.5",
@@ -21,5 +24,3 @@
     "zod": "^3.23.8"
   }
 }
-
-

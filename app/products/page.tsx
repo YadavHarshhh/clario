@@ -16,6 +16,11 @@ export default function ProductsPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 2000])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [geminiSummary, setGeminiSummary] = useState<string | null>(null)
+  const [geminiLoading, setGeminiLoading] = useState(false)
+  const [askQuery, setAskQuery] = useState("")
+  const [askResponse, setAskResponse] = useState<string | null>(null)
+  const [askLoading, setAskLoading] = useState(false)
 
   const [items, setItems] = useState<typeof products>([])
   const categories = useMemo(() => {
@@ -98,6 +103,7 @@ export default function ProductsPage() {
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setGeminiSummary(null)
     try {
       const params = new URLSearchParams()
       if (searchQuery.trim()) params.set('search', searchQuery.trim())
@@ -107,11 +113,54 @@ export default function ProductsPage() {
       const data = await resp.json()
       const list = Array.isArray(data?.data) ? data.data : []
       setItems(list as any)
+      
+      // Fetch Gemini summary if we have results
+      if (list.length > 0 && searchQuery.trim()) {
+        setGeminiLoading(true)
+        try {
+          const summaryResp = await fetch('http://localhost:4000/api/ai/summaries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query: searchQuery.trim(), limit: 5 }),
+          })
+          const summaryData = await summaryResp.json()
+          if (summaryData?.summary) {
+            setGeminiSummary(summaryData.summary)
+          }
+        } catch (e) {
+          console.error('Failed to fetch Gemini summary', e)
+        } finally {
+          setGeminiLoading(false)
+        }
+      }
     } catch (e) {
       console.error(e)
       setItems([] as any)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleAsk = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!askQuery.trim()) return
+    setAskLoading(true)
+    setAskResponse(null)
+    try {
+      const resp = await fetch('http://localhost:4000/api/ai/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: askQuery.trim() }),
+      })
+      const data = await resp.json()
+      if (data?.answer) {
+        setAskResponse(data.answer)
+      }
+    } catch (e) {
+      console.error('Failed to fetch Gemini answer', e)
+      setAskResponse('Sorry, I could not process your question at this time.')
+    } finally {
+      setAskLoading(false)
     }
   }
 
@@ -333,6 +382,67 @@ export default function ProductsPage() {
                     Found <span className="font-semibold text-foreground">{filteredProducts.length}</span> product
                     {filteredProducts.length !== 1 ? "s" : ""}
                   </p>
+                </motion.div>
+
+                {/* Gemini Summary */}
+                {(geminiLoading || geminiSummary) && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-8 bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl border border-primary/20 p-6"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">🤖</span>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-foreground mb-2">AI-Powered Search Summary</h3>
+                        {geminiLoading ? (
+                          <p className="text-muted-foreground">Generating insights...</p>
+                        ) : geminiSummary ? (
+                          <p className="text-foreground leading-relaxed">{geminiSummary}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Ask Clario */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-8 bg-card rounded-xl border border-border p-6"
+                >
+                  <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <span>💬</span> Ask Clario AI
+                  </h3>
+                  <form onSubmit={handleAsk} className="space-y-4">
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        placeholder="Ask anything about skincare products..."
+                        value={askQuery}
+                        onChange={(e) => setAskQuery(e.target.value)}
+                        className="flex-1 px-4 py-2 rounded-lg border border-border bg-background text-foreground placeholder-muted-foreground focus:border-primary focus:outline-none"
+                      />
+                      <motion.button
+                        type="submit"
+                        disabled={askLoading || !askQuery.trim()}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {askLoading ? "Thinking..." : "Ask"}
+                      </motion.button>
+                    </div>
+                    {askResponse && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="mt-4 p-4 bg-secondary/30 rounded-lg border border-border"
+                      >
+                        <p className="text-foreground whitespace-pre-wrap leading-relaxed">{askResponse}</p>
+                      </motion.div>
+                    )}
+                  </form>
                 </motion.div>
 
                 {/* Products */}

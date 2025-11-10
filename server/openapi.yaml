@@ -93,5 +93,39 @@ paths:
                 limit: { type: integer, default: 12 }
       responses:
         '200': { description: OK }
+  /ai/summaries:
+    post:
+      summary: Gemini powered search summary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query: { type: string }
+                category: { type: string }
+                skinType: { type: string }
+                concerns: { type: array, items: { type: string } }
+                limit: { type: integer, default: 5 }
+      responses:
+        '200': { description: OK }
+  /ai/ask:
+    post:
+      summary: Gemini Q&A based on catalog context
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                question: { type: string }
+                category: { type: string }
+                skinType: { type: string }
+                concerns: { type: array, items: { type: string } }
+                limit: { type: integer, default: 4 }
+      responses:
+        '200': { description: OK }
 
 

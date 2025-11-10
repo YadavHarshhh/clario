@@ -1,9 +1,27 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { parse } from 'csv-parse/sync'
+
+const defaultEnrichmentPath = process.env.GEMINI_CACHE_PATH || path.resolve(process.cwd(), '../data/gemini-enrichment.json')
 
 function toArray(value) {
   if (!value) return []
   return String(value).split(',').map(v => v.trim().toLowerCase()).filter(Boolean)
+}
+
+function loadEnrichment() {
+  try {
+    if (fs.existsSync(defaultEnrichmentPath)) {
+      return JSON.parse(fs.readFileSync(defaultEnrichmentPath, 'utf8'))
+    }
+  } catch (error) {
+    console.warn('Failed to load Gemini enrichment cache', error)
+  }
+  return {}
+}
+
+function buildKey(name, brand) {
+  return `${(name || '').trim().toLowerCase()}|${(brand || '').trim().toLowerCase()}`
 }
 
 export class CsvRepository {
@@ -17,12 +35,15 @@ export class CsvRepository {
   load() {
     const csv = fs.readFileSync(this.csvPath, 'utf8')
     const records = parse(csv, { columns: true, skip_empty_lines: true, trim: true })
+    const enrichment = loadEnrichment()
     this.products = records.map((r, idx) => {
       const name = r['prod_name'] || r['name']
       const category = r['category']
       const brand = r['Brand'] || r['brand']
       const skinTypes = toArray(r['Skin_Type'] || r['skin_types'])
       const url = r['Link'] || r['product_url']
+      const key = buildKey(name, brand)
+      const ai = enrichment[key] || null
       return {
         id: idx + 1,
         name,
@@ -40,6 +61,12 @@ export class CsvRepository {
         is_natural: false,
         is_chemical_free: false,
         product_url: url,
+        ai_summary: ai?.marketing_blurb || null,
+        ai_benefits: ai?.top_benefits || [],
+        ai_usage_tips: ai?.usage_tips || [],
+        ai_allergy_alerts: ai?.allergy_alerts || [],
+        ai_confidence: ai?.confidence ?? null,
+        ai_generated_at: ai?.generated_at || null,
         created_at: null,
         updated_at: null
       }
