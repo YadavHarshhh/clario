@@ -1,0 +1,97 @@
+openapi: 3.0.3
+info:
+  title: Clario API
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000/api
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /products:
+    get:
+      summary: List products
+      parameters:
+        - in: query; name: search; schema: { type: string }
+        - in: query; name: brand; schema: { type: string }
+        - in: query; name: category; schema: { type: string }
+        - in: query; name: skinType; schema: { type: string }
+        - in: query; name: concerns; schema: { type: string, description: comma-separated }
+        - in: query; name: ingredients; schema: { type: string, description: comma-separated }
+        - in: query; name: priceMin; schema: { type: integer }
+        - in: query; name: priceMax; schema: { type: integer }
+        - in: query; name: sort; schema: { type: string, enum: [popular, price-low, price-high, rating, newest] }
+        - in: query; name: page; schema: { type: integer, default: 1 }
+        - in: query; name: pageSize; schema: { type: integer, default: 24 }
+        - in: query; name: match; schema: { type: string, enum: [any, all], default: any }
+      responses:
+        '200':
+          description: OK
+  /products/{id}:
+    get:
+      summary: Get product by id
+      parameters:
+        - in: path; name: id; required: true; schema: { type: integer }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+  /users:
+    post:
+      summary: Create user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skin_type: { type: string }
+                concerns: { type: array, items: { type: string } }
+                has_allergies: { type: boolean }
+                allergies: { type: string, nullable: true }
+                product_preference: { type: string, enum: [all, natural, chemical-free] }
+      responses:
+        '201': { description: Created }
+  /users/{id}:
+    get:
+      summary: Get user
+      parameters:
+        - in: path; name: id; required: true; schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not found }
+    put:
+      summary: Update user
+      parameters:
+        - in: path; name: id; required: true; schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200': { description: OK }
+  /recommendations:
+    post:
+      summary: Get recommendations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                skinType: { type: string }
+                concerns: { type: array, items: { type: string } }
+                hasAllergies: { type: boolean }
+                allergies: { type: string, nullable: true }
+                productPreference: { type: string, enum: [all, natural, chemical-free] }
+                limit: { type: integer, default: 12 }
+      responses:
+        '200': { description: OK }
+
+
